@@ -79,14 +79,15 @@ class ConstantMulLinearOperator(LinearOperator):
         res = self.base_linear_op._diagonal()
         return res * self._constant.unsqueeze(-1)
 
-    def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
-        return self.__class__(
-            self.base_linear_op._expand_batch(batch_shape),
-            self._constant.expand(*batch_shape) if len(batch_shape) else self._constant,
-        )
+    # def _expand_batch(
+    #     self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
+    # ) -> Float[LinearOperator, "... M N"]:
+    #     return self.__class__(
+    #         self.base_linear_op._expand_batch(batch_shape),
+    #         self._constant.expand(*batch_shape) if len(batch_shape) else self._constant,
+    #     )
 
+    # TODO (Kacper) this really should not be done if we care about memory
     def _get_indices(self, row_index: IndexType, col_index: IndexType, *batch_indices: IndexType) -> torch.Tensor:
         # NOTE TO FUTURE SELF:
         # This custom __getitem__ is actually very important!
@@ -97,6 +98,7 @@ class ConstantMulLinearOperator(LinearOperator):
         constant = self._constant.expand(self.batch_shape)[batch_indices]
         return base_linear_op * constant
 
+    # TODO (Kacper) this really should not be done if we care about memory
     def _getitem(self, row_index: IndexType, col_index: IndexType, *batch_indices: IndexType) -> LinearOperator:
         # NOTE TO FUTURE SELF:
         # This custom __getitem__ is actually very important!
@@ -115,6 +117,7 @@ class ConstantMulLinearOperator(LinearOperator):
         res = res * self.expanded_constant
         return res
 
+    # TODO (Kacper) this really should not be done if we care about memory
     def _permute_batch(self, *dims: int) -> LinearOperator:
         return self.__class__(
             self.base_linear_op._permute_batch(*dims), self._constant.expand(self.batch_shape).permute(*dims)
@@ -150,12 +153,14 @@ class ConstantMulLinearOperator(LinearOperator):
     def _transpose_nonbatch(self: Float[LinearOperator, "*batch M N"]) -> Float[LinearOperator, "*batch N M"]:
         return ConstantMulLinearOperator(self.base_linear_op._transpose_nonbatch(), self._constant)
 
+    # TODO (Kacper) this really should not be done if we care about memory
     def _unsqueeze_batch(self, dim: int) -> LinearOperator:
         broadcasted_shape = self.batch_shape
         base_linear_op = self.base_linear_op._expand_batch(broadcasted_shape)._unsqueeze_batch(dim)
         constant = self._constant.expand(broadcasted_shape).unsqueeze(dim)
         return ConstantMulLinearOperator(base_linear_op=base_linear_op, constant=constant)
 
+    # TODO (Kacper) this really should not be done if we care about memory
     @property
     def expanded_constant(self) -> Tensor:
         # Make sure that the constant can be expanded to the appropriate size

@@ -40,10 +40,11 @@ class DenseLinearOperator(LinearOperator):
     def _diagonal(self: Float[LinearOperator, "... M N"]) -> Float[torch.Tensor, "... N"]:
         return self.tensor.diagonal(dim1=-1, dim2=-2)
 
-    def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
-        return self.__class__(self.tensor.expand(*batch_shape, *self.matrix_shape))
+    # NOTE (Kacper) I think there is no need for this method. The LinearOperator implementation seems better actually. 
+    # def _expand_batch(
+    #     self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
+    # ) -> Float[LinearOperator, "... M N"]:
+    #     return self.__class__(self.tensor.expand(*batch_shape, *self.matrix_shape))
 
     def _get_indices(self, row_index: IndexType, col_index: IndexType, *batch_indices: IndexType) -> torch.Tensor:
         # Perform the __getitem__

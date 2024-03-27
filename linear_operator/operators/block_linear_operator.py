@@ -59,12 +59,12 @@ class BlockLinearOperator(LinearOperator):
     def _add_batch_dim(self, other):
         raise NotImplementedError
 
-    def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
-        batch_shape = torch.Size((*batch_shape, self.base_linear_op.size(-3)))
-        res = self.__class__(self.base_linear_op._expand_batch(batch_shape))
-        return res
+    # def _expand_batch(
+    #     self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
+    # ) -> Float[LinearOperator, "... M N"]:
+    #     batch_shape = torch.Size((*batch_shape, self.base_linear_op.size(-3)))
+    #     res = self.__class__(self.base_linear_op._expand_batch(batch_shape))
+    #     return res
 
     def _getitem(self, row_index: IndexType, col_index: IndexType, *batch_indices: IndexType) -> LinearOperator:
         # First the easy case: just batch indexing

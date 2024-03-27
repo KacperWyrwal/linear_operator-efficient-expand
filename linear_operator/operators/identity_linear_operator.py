@@ -74,12 +74,12 @@ class IdentityLinearOperator(ConstantDiagLinearOperator):
     ) -> Union[Float[LinearOperator, "... N M"], Float[Tensor, "... N M"]]:
         return self._maybe_reshape_rhs(rhs)
 
-    def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
-        return IdentityLinearOperator(
-            diag_shape=self.diag_shape, batch_shape=batch_shape, dtype=self.dtype, device=self.device
-        )
+    # def _expand_batch(
+    #     self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
+    # ) -> Float[LinearOperator, "... M N"]:
+    #     return IdentityLinearOperator(
+    #         diag_shape=self.diag_shape, batch_shape=batch_shape, dtype=self.dtype, device=self.device
+    #     )
 
     def _getitem(self, row_index: IndexType, col_index: IndexType, *batch_indices: IndexType) -> LinearOperator:
         # Special case: if both row and col are not indexed, then we are done

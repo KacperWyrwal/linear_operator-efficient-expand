@@ -8,6 +8,7 @@ from torch import Tensor
 
 from linear_operator.operators._linear_operator import IndexType, LinearOperator
 from linear_operator.operators.batch_repeat_linear_operator import BatchRepeatLinearOperator
+from linear_operator.operators.batch_expand_linear_operator import BatchExpandLinearOperator
 from linear_operator.operators.dense_linear_operator import DenseLinearOperator
 
 from linear_operator.utils.errors import NotPSDError
@@ -43,6 +44,12 @@ class TriangularLinearOperator(LinearOperator, _TriangularLinearOperatorBase):
                 tensor = tensor.__class__(
                     TriangularLinearOperator(tensor.base_linear_op, upper=upper),
                     batch_repeat=tensor.batch_repeat,
+                )
+        elif isinstance(tensor, BatchExpandLinearOperator):
+            if not isinstance(tensor.base_linear_op, TriangularLinearOperator):
+                tensor = tensor.__class__(
+                    TriangularLinearOperator(tensor.base_linear_op, upper=upper),
+                    batch_expand=tensor.batch_expand,
                 )
         if torch.is_tensor(tensor):
             tensor = DenseLinearOperator(tensor)
@@ -91,12 +98,12 @@ class TriangularLinearOperator(LinearOperator, _TriangularLinearOperatorBase):
     def _diagonal(self: Float[LinearOperator, "... M N"]) -> Float[torch.Tensor, "... N"]:
         return self._tensor._diagonal()
 
-    def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
-        if len(batch_shape) == 0:
-            return self
-        return self.__class__(tensor=self._tensor._expand_batch(batch_shape), upper=self.upper)
+    # def _expand_batch(
+    #     self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
+    # ) -> Float[LinearOperator, "... M N"]:
+    #     if len(batch_shape) == 0:
+    #         return self
+    #     return self.__class__(tensor=self._tensor._expand_batch(batch_shape), upper=self.upper)
 
     def _get_indices(self, row_index: IndexType, col_index: IndexType, *batch_indices: IndexType) -> torch.Tensor:
         return self._tensor._get_indices(row_index, col_index, *batch_indices)
@@ -219,6 +226,9 @@ class TriangularLinearOperator(LinearOperator, _TriangularLinearOperatorBase):
         elif isinstance(self._tensor, BatchRepeatLinearOperator):
             res = self._tensor.base_linear_op.solve(right_tensor, left_tensor)
             # TODO: Proper broadcasting
+            res = res.expand(self._tensor.batch_repeat + res.shape[-2:])
+        elif isinstance(self._tensor, BatchExpandLinearOperator):
+            res = self._tensor.base_linear_op.solve(right_tensor, left_tensor)
             res = res.expand(self._tensor.batch_repeat + res.shape[-2:])
         else:
             # TODO: Can we be smarter here?

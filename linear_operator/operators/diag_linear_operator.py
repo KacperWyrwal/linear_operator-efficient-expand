@@ -60,10 +60,10 @@ class DiagLinearOperator(TriangularLinearOperator):
     ) -> Union[Float[LinearOperator, "... N M"], Float[Tensor, "... N M"]]:
         return rhs / self._diag.unsqueeze(-1).pow(2)
 
-    def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
-        return self.__class__(self._diag.expand(*batch_shape, self._diag.size(-1)))
+    # def _expand_batch(
+    #     self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
+    # ) -> Float[LinearOperator, "... M N"]:
+    #     return self.__class__(self._diag.expand(*batch_shape, self._diag.size(-1)))
 
     def _diagonal(self: Float[LinearOperator, "... M N"]) -> Float[torch.Tensor, "... N"]:
         return self._diag
@@ -123,6 +123,7 @@ class DiagLinearOperator(TriangularLinearOperator):
         """
         return self.__class__(self._diag.abs())
 
+    # TODO (Kacper) this really should not be done if we care about memory
     def add_diagonal(
         self: Float[LinearOperator, "*batch N N"],
         diag: Union[Float[torch.Tensor, "... N"], Float[torch.Tensor, "... 1"], Float[torch.Tensor, ""]],
@@ -206,8 +207,10 @@ class DiagLinearOperator(TriangularLinearOperator):
             return TriangularLinearOperator(self @ other._tensor, upper=other.upper)
 
         if isinstance(other, BlockDiagLinearOperator):
-            diag_reshape = self._diag.view(*other.base_linear_op.shape[:-1])
-            diag = DiagLinearOperator(diag_reshape)
+            # TODO (Kacper) not applying view makes the operation lazy and more efficient
+            # diag_reshape = self._diag.view(*other.base_linear_op.shape[:-1])
+            # diag = DiagLinearOperator(diag_reshape)
+            diag = self
             # using matmul here avoids having to implement special case of elementwise multiplication
             # with block diagonal operator, which itself has special cases for vectors and matrices
             return BlockDiagLinearOperator(diag @ other.base_linear_op)
@@ -332,14 +335,15 @@ class ConstantDiagLinearOperator(DiagLinearOperator):
         res = res.unsqueeze(-1)
         return (res,)
 
+    # TODO (Kacper) this really should not be done if we care about memory
     @property
     def _diag(self: Float[LinearOperator, "... N N"]) -> Float[Tensor, "... N"]:
         return self.diag_values.expand(*self.diag_values.shape[:-1], self.diag_shape)
 
-    def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
-        return self.__class__(self.diag_values.expand(*batch_shape, 1), diag_shape=self.diag_shape)
+    # def _expand_batch(
+    #     self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
+    # ) -> Float[LinearOperator, "... M N"]:
+    #     return self.__class__(self.diag_values.expand(*batch_shape, 1), diag_shape=self.diag_shape)
 
     def _mul_constant(
         self: Float[LinearOperator, "*batch M N"], other: Union[float, torch.Tensor]

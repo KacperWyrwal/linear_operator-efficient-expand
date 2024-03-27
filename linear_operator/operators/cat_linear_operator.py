@@ -159,25 +159,25 @@ class CatLinearOperator(LinearOperator):
             res = torch.cat([t._diagonal().to(self.device) for t in self.linear_ops], dim=self.cat_dim + 1)
         return res
 
-    def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
-        batch_dim = self.cat_dim + 2
-        if batch_dim < 0:
-            if batch_shape[batch_dim] != self.batch_shape[batch_dim]:
-                raise RuntimeError(
-                    f"Trying to expand a CatLinearOperator in dimension {self.cat_dim}, but this is the concatenated "
-                    f"dimension.\nCurrent shape: {self.shape} - expanded shape: {batch_shape + self.matrix_shape}."
-                )
-            linear_ops = []
-            for linear_op in self.linear_ops:
-                sub_batch_shape = list(batch_shape).copy()
-                sub_batch_shape[batch_dim] = linear_op.shape[self.cat_dim]
-                linear_ops.append(linear_op._expand_batch(sub_batch_shape))
-        else:
-            linear_ops = [linear_op._expand_batch(batch_shape) for linear_op in self.linear_ops]
-        res = self.__class__(*linear_ops, dim=self.cat_dim, output_device=self.output_device)
-        return res
+    # def _expand_batch(
+    #     self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
+    # ) -> Float[LinearOperator, "... M N"]:
+    #     batch_dim = self.cat_dim + 2
+    #     if batch_dim < 0:
+    #         if batch_shape[batch_dim] != self.batch_shape[batch_dim]:
+    #             raise RuntimeError(
+    #                 f"Trying to expand a CatLinearOperator in dimension {self.cat_dim}, but this is the concatenated "
+    #                 f"dimension.\nCurrent shape: {self.shape} - expanded shape: {batch_shape + self.matrix_shape}."
+    #             )
+    #         linear_ops = []
+    #         for linear_op in self.linear_ops:
+    #             sub_batch_shape = list(batch_shape).copy()
+    #             sub_batch_shape[batch_dim] = linear_op.shape[self.cat_dim]
+    #             linear_ops.append(linear_op._expand_batch(sub_batch_shape))
+    #     else:
+    #         linear_ops = [linear_op._expand_batch(batch_shape) for linear_op in self.linear_ops]
+    #     res = self.__class__(*linear_ops, dim=self.cat_dim, output_device=self.output_device)
+    #     return res
 
     def _get_indices(self, row_index: IndexType, col_index: IndexType, *batch_indices: IndexType) -> torch.Tensor:
         indices = [*batch_indices, row_index, col_index]

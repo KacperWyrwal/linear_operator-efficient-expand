@@ -192,8 +192,10 @@ class BlockDiagLinearOperator(BlockLinearOperator, metaclass=_MetaBlockDiagLinea
         # special case if we have a DiagLinearOperator
         if isinstance(other, DiagLinearOperator):
             # matmul is going to be cheap because of the special casing in DiagLinearOperator
-            diag_reshape = other._diag.view(*self.base_linear_op.shape[:-1])
-            diag = DiagLinearOperator(diag_reshape)
+            # TODO (Kacper) Not applying view makes the operation lazy and more efficient
+            # diag_reshape = other._diag.view(*self.base_linear_op.shape[:-1])
+            # diag = DiagLinearOperator(diag_reshape)
+            diag = other
             return BlockDiagLinearOperator(self.base_linear_op @ diag)
         return super().matmul(other)
 

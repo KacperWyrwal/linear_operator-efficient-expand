@@ -128,12 +128,12 @@ class MulLinearOperator(LinearOperator):
 
         return tuple(list(left_deriv_args) + list(right_deriv_args))
 
-    def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
-        return self.__class__(
-            self.left_linear_op._expand_batch(batch_shape), self.right_linear_op._expand_batch(batch_shape)
-        )
+    # def _expand_batch(
+    #     self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
+    # ) -> Float[LinearOperator, "... M N"]:
+    #     return self.__class__(
+    #         self.left_linear_op._expand_batch(batch_shape), self.right_linear_op._expand_batch(batch_shape)
+    #     )
 
     @cached
     def to_dense(self: Float[LinearOperator, "*batch M N"]) -> Float[Tensor, "*batch M N"]:

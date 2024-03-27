@@ -10,6 +10,7 @@ from linear_operator import settings
 from linear_operator.operators._linear_operator import LinearOperator
 from linear_operator.operators.added_diag_linear_operator import AddedDiagLinearOperator
 from linear_operator.operators.diag_linear_operator import ConstantDiagLinearOperator, DiagLinearOperator
+from linear_operator.operators.batch_expand_linear_operator import BatchExpandLinearOperator
 from linear_operator.operators.kronecker_product_linear_operator import (
     KroneckerProductDiagLinearOperator,
     KroneckerProductLinearOperator,
@@ -57,6 +58,12 @@ class KroneckerProductAddedDiagLinearOperator(AddedDiagLinearOperator):
         elif isinstance(linear_ops[1], DiagLinearOperator):
             self.diag_tensor = linear_ops[1]
             self.linear_op = linear_ops[0]
+        # elif isinstance(linear_ops[0], BatchExpandLinearOperator) and isinstance(linear_ops[0].base_linear_op, DiagLinearOperator):
+        #     self.diag_tensor = linear_ops[1]
+        #     self.linear_op = linear_ops[0]
+        # elif isinstance(linear_ops[1], BatchExpandLinearOperator) and isinstance(linear_ops[1].base_linear_op, DiagLinearOperator):
+        #     self.diag_tensor = linear_ops[0]
+        #     self.linear_op = linear_ops[1]
         else:
             raise RuntimeError(
                 "One of the LinearOperators input to AddedDiagLinearOperator must be a DiagLinearOperator!"

@@ -13,6 +13,7 @@ from linear_operator.operators._linear_operator import IndexType, LinearOperator
 from linear_operator.operators.dense_linear_operator import to_linear_operator
 from linear_operator.operators.diag_linear_operator import ConstantDiagLinearOperator, DiagLinearOperator
 from linear_operator.operators.triangular_linear_operator import _TriangularLinearOperatorBase, TriangularLinearOperator
+from linear_operator.operators.batch_expand_linear_operator import BatchExpandLinearOperator
 from linear_operator.utils.broadcasting import _matmul_broadcast_shape
 from linear_operator.utils.memoize import cached
 
@@ -74,23 +75,23 @@ class KroneckerProductLinearOperator(LinearOperator):
         except TypeError:
             raise RuntimeError("KroneckerProductLinearOperator is intended to wrap lazy tensors.")
 
-        # Make batch shapes the same for all operators
-        try:
-            batch_broadcast_shape = torch.broadcast_shapes(*(linear_op.batch_shape for linear_op in linear_ops))
-        except RuntimeError:
-            raise RuntimeError(
-                "Batch shapes of LinearOperators "
-                f"({', '.join([str(tuple(linear_op.shape)) for linear_op in linear_ops])}) "
-                "are incompatible for a Kronecker product."
-            )
+        # # Make batch shapes the same for all operators
+        # try:
+        #     batch_broadcast_shape = torch.broadcast_shapes(*(linear_op.batch_shape for linear_op in linear_ops))
+        # except RuntimeError:
+        #     raise RuntimeError(
+        #         "Batch shapes of LinearOperators "
+        #         f"({', '.join([str(tuple(linear_op.shape)) for linear_op in linear_ops])}) "
+        #         "are incompatible for a Kronecker product."
+        #     )
 
-        if len(batch_broadcast_shape):  # Otherwise all linear_ops are non-batch, and we don't need to expand
-            # NOTE: we must explicitly call requires_grad on each of these arguments
-            # for the automatic _bilinear_derivative to work in torch.autograd.Functions
-            linear_ops = tuple(
-                linear_op._expand_batch(batch_broadcast_shape).requires_grad_(linear_op.requires_grad)
-                for linear_op in linear_ops
-            )
+        # if len(batch_broadcast_shape):  # Otherwise all linear_ops are non-batch, and we don't need to expand
+        #     # NOTE: we must explicitly call requires_grad on each of these arguments
+        #     # for the automatic _bilinear_derivative to work in torch.autograd.Functions
+        #     linear_ops = tuple(
+        #         linear_op._expand_batch(batch_broadcast_shape).requires_grad_(linear_op.requires_grad)
+        #         for linear_op in linear_ops
+        #     )
 
         super().__init__(*linear_ops)
         self.linear_ops = linear_ops
@@ -186,10 +187,10 @@ class KroneckerProductLinearOperator(LinearOperator):
     def _diagonal(self: Float[LinearOperator, "... M N"]) -> Float[torch.Tensor, "... N"]:
         return _kron_diag(*self.linear_ops)
 
-    def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
-        return self.__class__(*[linear_op._expand_batch(batch_shape) for linear_op in self.linear_ops])
+    # def _expand_batch(
+    #     self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
+    # ) -> Float[LinearOperator, "... M N"]:
+    #     return self.__class__(*[linear_op._expand_batch(batch_shape) for linear_op in self.linear_ops])
 
     def _get_indices(self, row_index: IndexType, col_index: IndexType, *batch_indices: IndexType) -> torch.Tensor:
         row_factor = self.size(-2)
@@ -373,7 +374,7 @@ class KroneckerProductLinearOperator(LinearOperator):
 
 class KroneckerProductTriangularLinearOperator(KroneckerProductLinearOperator, _TriangularLinearOperatorBase):
     def __init__(self, *linear_ops, upper=False):
-        if not all(isinstance(lt, TriangularLinearOperator) for lt in linear_ops):
+        if not all(isinstance(lt, TriangularLinearOperator) or (isinstance(lt, BatchExpandLinearOperator) and isinstance(lt.base_linear_op, TriangularLinearOperator)) for lt in linear_ops):
             raise RuntimeError(
                 "Components of KroneckerProductTriangularLinearOperator must be TriangularLinearOperator."
             )
@@ -433,8 +434,9 @@ class KroneckerProductDiagLinearOperator(DiagLinearOperator, KroneckerProductTri
     """
 
     def __init__(self, *linear_ops: Tuple[DiagLinearOperator, ...]):
-        if not all(isinstance(lt, DiagLinearOperator) for lt in linear_ops):
-            raise RuntimeError("Components of KroneckerProductDiagLinearOperator must be DiagLinearOperator.")
+        if not all(isinstance(lt, DiagLinearOperator) or (isinstance(lt, BatchExpandLinearOperator) and isinstance(lt.base_linear_op, DiagLinearOperator)) for lt in linear_ops):
+            not_diag = [lt for lt in linear_ops if not isinstance(lt, DiagLinearOperator) or (isinstance(lt, BatchExpandLinearOperator) and not isinstance(lt.base_linear_op, DiagLinearOperator))]
+            raise RuntimeError(f"Components of KroneckerProductDiagLinearOperator must be DiagLinearOperator. Got {not_diag}")
         super(KroneckerProductTriangularLinearOperator, self).__init__(*linear_ops)
         self.upper = False
 
@@ -464,7 +466,7 @@ class KroneckerProductDiagLinearOperator(DiagLinearOperator, KroneckerProductTri
 
     def _size(self) -> torch.Size:
         # Though the super._size method works, this is more efficient
-        diag_shapes = [linear_op._diag.shape for linear_op in self.linear_ops]
+        diag_shapes = [linear_op.diagonal().shape for linear_op in self.linear_ops]
         batch_shape = torch.broadcast_shapes(*[diag_shape[:-1] for diag_shape in diag_shapes])
         N = 1
         for diag_shape in diag_shapes:

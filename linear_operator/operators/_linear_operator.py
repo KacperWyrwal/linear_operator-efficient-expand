@@ -410,7 +410,7 @@ class LinearOperator(object):
         batch_repeat = torch.Size(
             [expand_size // current_size for expand_size, current_size in zip(batch_shape, current_shape)]
         )
-        return self.repeat(*batch_repeat, 1, 1)
+        return self.repeat(*batch_repeat, -1, -1)
 
     def _get_indices(self, row_index: IndexType, col_index: IndexType, *batch_indices: IndexType) -> torch.Tensor:
         """
@@ -2027,19 +2027,22 @@ class LinearOperator(object):
         :param sizes: The number of times to repeat this tensor along each dimension.
         :return: A LinearOperator with repeated dimensions.
         """
-        from linear_operator.operators.batch_repeat_linear_operator import BatchRepeatLinearOperator
+        # from linear_operator.operators.batch_repeat_linear_operator import BatchRepeatLinearOperator
+        from linear_operator.operators.batch_expand_linear_operator import BatchExpandLinearOperator
 
         # Short path if no repetition is necessary
-        if all(x == 1 for x in sizes) and len(sizes) == self.dim():
+        if all(x == -1 for x in sizes) and len(sizes) == self.dim():
             return self
 
-        if len(sizes) < 3 or tuple(sizes[-2:]) != (1, 1):
+        if len(sizes) < 3 or tuple(sizes[-2:]) != (-1, -1):
             raise RuntimeError(
                 "Invalid repeat arguments {}. Currently, repeat only works to create repeated "
                 "batches of a 2D LinearOperator.".format(tuple(sizes))
             )
 
-        return BatchRepeatLinearOperator(self, batch_repeat=torch.Size(sizes[:-2]))
+        # NOTE (Kacper) I am hereby deprecating this inneficient implementation of repeat.
+        # return BatchRepeatLinearOperator(self, batch_repeat=torch.Size(sizes[:-2]))
+        return BatchExpandLinearOperator(self, batch_repeat=torch.Size(sizes[:-2]))
 
     # TODO: make this method private
     def representation(self) -> Tuple[torch.Tensor, ...]:
@@ -2765,8 +2768,11 @@ class LinearOperator(object):
         from linear_operator.operators.root_linear_operator import RootLinearOperator
         from linear_operator.operators.sum_linear_operator import SumLinearOperator
         from linear_operator.operators.zero_linear_operator import ZeroLinearOperator
-
-        if isinstance(other, ZeroLinearOperator):
+        from linear_operator.operators.batch_expand_linear_operator import BatchExpandLinearOperator
+        
+        if isinstance(other, BatchExpandLinearOperator):
+            return other + self 
+        elif isinstance(other, ZeroLinearOperator):
             return self
         elif isinstance(other, DiagLinearOperator):
             return AddedDiagLinearOperator(self, other)
@@ -2774,9 +2780,9 @@ class LinearOperator(object):
             return self.add_low_rank(other.root)
         elif isinstance(other, Tensor):
             other = to_linear_operator(other)
-            shape = torch.broadcast_shapes(self.shape, other.shape)
-            new_self = self if self.shape[:-2] == shape[:-2] else self._expand_batch(shape[:-2])
-            new_other = other if other.shape[:-2] == shape[:-2] else other._expand_batch(shape[:-2])
+            # shape = torch.broadcast_shapes(self.shape, other.shape)
+            new_self = self #if self.shape[:-2] == shape[:-2] else self._expand_batch(shape[:-2])
+            new_other = other #if other.shape[:-2] == shape[:-2] else other._expand_batch(shape[:-2])
             return SumLinearOperator(new_self, new_other)
         elif isinstance(other, numbers.Number) and other == 0:
             return self

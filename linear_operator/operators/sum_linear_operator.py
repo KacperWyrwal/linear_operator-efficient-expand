@@ -20,8 +20,8 @@ class SumLinearOperator(LinearOperator):
             linear_ops = tuple(to_linear_operator(lt) for lt in linear_ops)
         except TypeError:
             raise TypeError("All arguments of a SumLinearOperator should be LinearOperators or Tensors")
-        batch_shape = torch.broadcast_shapes(*[lt.batch_shape for lt in linear_ops])
-        linear_ops = tuple(lt._expand_batch(batch_shape) if lt.batch_shape != batch_shape else lt for lt in linear_ops)
+        # batch_shape = torch.broadcast_shapes(*[lt.batch_shape for lt in linear_ops])
+        # linear_ops = tuple(lt._expand_batch(batch_shape) if lt.batch_shape != batch_shape else lt for lt in linear_ops)
         super(SumLinearOperator, self).__init__(*linear_ops, **kwargs)
 
         self.linear_ops = linear_ops
@@ -29,11 +29,11 @@ class SumLinearOperator(LinearOperator):
     def _diagonal(self: Float[LinearOperator, "... M N"]) -> Float[torch.Tensor, "... N"]:
         return sum(linear_op._diagonal().contiguous() for linear_op in self.linear_ops)
 
-    def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
-        expanded_tensors = [linear_op._expand_batch(batch_shape) for linear_op in self.linear_ops]
-        return self.__class__(*expanded_tensors)
+    # def _expand_batch(
+    #     self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
+    # ) -> Float[LinearOperator, "... M N"]:
+    #     expanded_tensors = [linear_op._expand_batch(batch_shape) for linear_op in self.linear_ops]
+    #     return self.__class__(*expanded_tensors)
 
     def _get_indices(self, row_index: IndexType, col_index: IndexType, *batch_indices: IndexType) -> torch.Tensor:
         results = [linear_op._get_indices(row_index, col_index, *batch_indices) for linear_op in self.linear_ops]
@@ -86,8 +86,12 @@ class SumLinearOperator(LinearOperator):
     ) -> Union[Float[LinearOperator, "... M N"], Float[Tensor, "... M N"]]:
         from linear_operator.operators.added_diag_linear_operator import AddedDiagLinearOperator
         from linear_operator.operators.diag_linear_operator import DiagLinearOperator
+        from linear_operator.operators.batch_expand_linear_operator import BatchExpandLinearOperator
 
-        if isinstance(other, ZeroLinearOperator):
+
+        if isinstance(other, BatchExpandLinearOperator):
+            return BatchExpandLinearOperator(self + other.base_linear_op, other.batch_repeat)
+        elif isinstance(other, ZeroLinearOperator):
             return self
         elif isinstance(other, DiagLinearOperator):
             return AddedDiagLinearOperator(self, other)
@@ -97,13 +101,16 @@ class SumLinearOperator(LinearOperator):
             return SumLinearOperator(*(list(self.linear_ops) + [other]))
         elif isinstance(other, Tensor):
             # get broadcast shape, assuming mul broadcasting the same as add broadcasting
-            broadcasted_shape = torch.broadcast_shapes(self.shape, other.shape)
+            # broadcasted_shape = torch.broadcast_shapes(self.shape, other.shape)
 
             # to_linear_operator + broadcast other
-            broadcasted_other = to_linear_operator(other.expand(broadcasted_shape))
+            # broadcasted_other = to_linear_operator(other.expand(broadcasted_shape))
 
             # update the lazy tensors' shape as well
-            new_self = self if broadcasted_shape == self.shape else self._expand_batch(broadcasted_shape[:-2])
+            # new_self = self if broadcasted_shape == self.shape else self._expand_batch(broadcasted_shape[:-2])
+
+            broadcasted_other = to_linear_operator(other)
+            new_self = self 
 
             return SumLinearOperator(*(list(new_self.linear_ops) + [broadcasted_other]))
         else:

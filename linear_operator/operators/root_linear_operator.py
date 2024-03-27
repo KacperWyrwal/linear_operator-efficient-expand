@@ -26,12 +26,12 @@ class RootLinearOperator(LinearOperator):
         else:
             return super()._diagonal()
 
-    def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
-        if len(batch_shape) == 0:
-            return self
-        return self.__class__(self.root._expand_batch(batch_shape))
+    # def _expand_batch(
+    #     self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
+    # ) -> Float[LinearOperator, "... M N"]:
+    #     if len(batch_shape) == 0:
+    #         return self
+    #     return self.__class__(self.root._expand_batch(batch_shape))
 
     def _get_indices(self, row_index: IndexType, col_index: IndexType, *batch_indices: IndexType) -> torch.Tensor:
         row_index = row_index.unsqueeze(-1)

@@ -9,7 +9,6 @@ from torch import Tensor
 from linear_operator.operators._linear_operator import IndexType, LinearOperator
 from linear_operator.operators.dense_linear_operator import DenseLinearOperator, to_linear_operator
 from linear_operator.operators.diag_linear_operator import DiagLinearOperator
-
 from linear_operator.utils.broadcasting import _matmul_broadcast_shape, _pad_with_singletons
 from linear_operator.utils.getitem import _noop_index
 from linear_operator.utils.memoize import cached
@@ -25,33 +24,43 @@ def _outer_repeat(tensor, amt):
 
 class MatmulLinearOperator(LinearOperator):
     def __init__(self, left_linear_op, right_linear_op):
+        from linear_operator.operators.batch_expand_linear_operator import BatchExpandLinearOperator
         left_linear_op = to_linear_operator(left_linear_op)
         right_linear_op = to_linear_operator(right_linear_op)
+        # if isinstance(left_linear_op, BatchExpandLinearOperator):
+        #     print("Left is a BatchExpandLinearOperator")
+        # if isinstance(right_linear_op, BatchExpandLinearOperator):
+        #     print("Right is a BatchExpandLinearOperator")
 
-        # Match batch dimensions
-        batch_shape = torch.broadcast_shapes(left_linear_op.batch_shape, right_linear_op.batch_shape)
-        if left_linear_op.batch_shape != batch_shape:
-            left_linear_op = left_linear_op._expand_batch(batch_shape)
-        if right_linear_op.batch_shape != batch_shape:
-            right_linear_op = right_linear_op._expand_batch(batch_shape)
+        # # Match batch dimensions
+        # batch_shape = torch.broadcast_shapes(left_linear_op.batch_shape, right_linear_op.batch_shape)
+        # print(f"Matching batch dimensions to: {batch_shape}")
+        # if left_linear_op.batch_shape != batch_shape:
+        #     left_linear_op = left_linear_op._expand_batch(batch_shape)
+        # if right_linear_op.batch_shape != batch_shape:
+        #     right_linear_op = right_linear_op._expand_batch(batch_shape)
 
         super().__init__(left_linear_op, right_linear_op)
-        batch_shape = torch.broadcast_shapes(left_linear_op.batch_shape, right_linear_op.batch_shape)
-        if left_linear_op.batch_shape != batch_shape:
-            self.left_linear_op = left_linear_op._expand_batch(batch_shape)
-        else:
-            self.left_linear_op = left_linear_op
-        if right_linear_op.batch_shape != batch_shape:
-            self.right_linear_op = right_linear_op._expand_batch(batch_shape)
-        else:
-            self.right_linear_op = right_linear_op
+        self.left_linear_op = left_linear_op
+        self.right_linear_op = right_linear_op
+        # batch_shape = torch.broadcast_shapes(left_linear_op.batch_shape, right_linear_op.batch_shape)
+        # print(f"{left_linear_op.batch_shape=}, {right_linear_op.batch_shape=}, {batch_shape=}")
 
-    def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
-        return self.__class__(
-            self.left_linear_op._expand_batch(batch_shape), self.right_linear_op._expand_batch(batch_shape)
-        )
+        # if left_linear_op.batch_shape != batch_shape:
+        #     self.left_linear_op = left_linear_op._expand_batch(batch_shape)
+        # else:
+        #     self.left_linear_op = left_linear_op
+        # if right_linear_op.batch_shape != batch_shape:
+        #     self.right_linear_op = right_linear_op._expand_batch(batch_shape)
+        # else:
+        #     self.right_linear_op = right_linear_op
+
+    # def _expand_batch(
+    #     self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
+    # ) -> Float[LinearOperator, "... M N"]:
+    #     return self.__class__(
+    #         self.left_linear_op._expand_batch(batch_shape), self.right_linear_op._expand_batch(batch_shape)
+    #     )
 
     def _get_indices(self, row_index: IndexType, col_index: IndexType, *batch_indices: IndexType) -> torch.Tensor:
         row_index = row_index.unsqueeze(-1)
